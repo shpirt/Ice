@@ -220,6 +220,19 @@ final class MenuBarManager: ObservableObject {
             }
             .store(in: &c)
 
+        if let hiddenSection = section(withName: .hidden) {
+            hiddenSection.controlItem.$state
+                .removeDuplicates()
+                .receive(on: DispatchQueue.main)
+                .sink { [weak hiddenSection] state in
+                    guard case .showItems = state else {
+                        return
+                    }
+                    hiddenSection?.autoUseIceBarIfNeeded()
+                }
+                .store(in: &c)
+        }
+
         cancellables = c
     }
 

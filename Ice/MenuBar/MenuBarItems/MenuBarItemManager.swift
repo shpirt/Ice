@@ -312,26 +312,31 @@ extension MenuBarItemManager {
 
     /// Caches the current menu bar items if needed, ensuring that the control
     /// items are in the correct order.
-    func cacheItemsIfNeeded() async {
+    func cacheItemsIfNeeded(force: Bool = false) async {
         do {
             try await waitForItemsToStopMoving(timeout: .seconds(1))
         } catch is TaskTimeoutError {
-            logSkippingCache(reason: "an item is currently being moved")
-            return
-        } catch {
-            guard !itemHasRecentlyMoved else {
-                logSkippingCache(reason: "an item was recently moved")
+            if !force {
+                logSkippingCache(reason: "an item is currently being moved")
                 return
+            }
+        } catch {
+            if !force {
+                guard !itemHasRecentlyMoved else {
+                    logSkippingCache(reason: "an item was recently moved")
+                    return
+                }
             }
         }
 
         let itemWindowIDs = Bridging.getWindowList(option: [.menuBarItems, .activeSpace])
-        if cachedItemWindowIDs == itemWindowIDs {
-            logSkippingCache(reason: "item windows have not changed")
-            return
-        } else {
-            cachedItemWindowIDs = itemWindowIDs
+        if !force {
+            if cachedItemWindowIDs == itemWindowIDs {
+                logSkippingCache(reason: "item windows have not changed")
+                return
+            }
         }
+        cachedItemWindowIDs = itemWindowIDs
 
         var items = MenuBarItem.getMenuBarItems(onScreenOnly: false, activeSpaceOnly: true)
 

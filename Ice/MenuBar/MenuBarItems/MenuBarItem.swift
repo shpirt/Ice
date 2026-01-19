@@ -35,6 +35,11 @@ struct MenuBarItem {
         window.isOnScreen
     }
 
+    /// A Boolean value that indicates whether the item is on the active space.
+    var isOnActiveSpace: Bool {
+        window.isOnActiveSpace
+    }
+
     /// A Boolean value that indicates whether the item can be moved.
     var isMovable: Bool {
         let immovableItems = Set(MenuBarItemInfo.immovableItems)
@@ -171,7 +176,12 @@ extension MenuBarItem {
     ///     are on screen should be returned.
     ///   - activeSpaceOnly: A Boolean value that indicates whether only the menu bar items
     ///     that are on the active space should be returned.
-    static func getMenuBarItems(on display: CGDirectDisplayID? = nil, onScreenOnly: Bool, activeSpaceOnly: Bool) -> [MenuBarItem] {
+    static func getMenuBarItems(
+        on display: CGDirectDisplayID? = nil,
+        onScreenOnly: Bool,
+        activeSpaceOnly: Bool,
+        includeUntitledItems: Bool = false
+    ) -> [MenuBarItem] {
         var option: Bridging.WindowListOption = [.menuBarItems]
 
         var titlePredicate: (MenuBarItem) -> Bool = { _ in true }
@@ -182,7 +192,9 @@ extension MenuBarItem {
         }
         if activeSpaceOnly {
             option.insert(.activeSpace)
-            titlePredicate = { $0.title != "" }
+            if !includeUntitledItems {
+                titlePredicate = { !($0.title ?? "").isEmpty }
+            }
         }
         if let display {
             let displayBounds = CGDisplayBounds(display)

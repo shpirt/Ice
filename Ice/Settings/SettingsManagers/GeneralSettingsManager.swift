@@ -27,6 +27,10 @@ final class GeneralSettingsManager: ObservableObject {
     /// in a separate bar below the menu bar.
     @Published var useIceBar = false
 
+    /// A Boolean value that indicates whether to automatically use
+    /// the Ice Bar when hidden items don't fit in the menu bar.
+    @Published var autoUseIceBarWhenNeeded = true
+
     /// The location where the Ice Bar appears.
     @Published var iceBarLocation: IceBarLocation = .dynamic
 
@@ -84,6 +88,7 @@ final class GeneralSettingsManager: ObservableObject {
         Defaults.ifPresent(key: .showIceIcon, assign: &showIceIcon)
         Defaults.ifPresent(key: .customIceIconIsTemplate, assign: &customIceIconIsTemplate)
         Defaults.ifPresent(key: .useIceBar, assign: &useIceBar)
+        Defaults.ifPresent(key: .autoUseIceBarWhenNeeded, assign: &autoUseIceBarWhenNeeded)
         Defaults.ifPresent(key: .showOnClick, assign: &showOnClick)
         Defaults.ifPresent(key: .showOnHover, assign: &showOnHover)
         Defaults.ifPresent(key: .showOnScroll, assign: &showOnScroll)
@@ -153,6 +158,13 @@ final class GeneralSettingsManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { useIceBar in
                 Defaults.set(useIceBar, forKey: .useIceBar)
+            }
+            .store(in: &c)
+
+        $autoUseIceBarWhenNeeded
+            .receive(on: DispatchQueue.main)
+            .sink { autoUseIceBarWhenNeeded in
+                Defaults.set(autoUseIceBarWhenNeeded, forKey: .autoUseIceBarWhenNeeded)
             }
             .store(in: &c)
 

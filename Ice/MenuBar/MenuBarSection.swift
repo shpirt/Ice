@@ -54,6 +54,12 @@ final class MenuBarSection {
         appState?.settingsManager.generalSettingsManager.useIceBar ?? false
     }
 
+    /// A Boolean value that indicates whether the Ice Bar should be used automatically
+    /// when hidden items don't fit in the menu bar.
+    private var autoUseIceBarWhenNeeded: Bool {
+        appState?.settingsManager.generalSettingsManager.autoUseIceBarWhenNeeded ?? false
+    }
+
     /// A weak reference to the menu bar manager's Ice Bar panel.
     private weak var iceBarPanel: IceBarPanel? {
         appState?.menuBarManager.iceBarPanel
@@ -130,9 +136,11 @@ final class MenuBarSection {
     /// Shows the section.
     func show() {
         guard
-            let appState,
-            isHidden
+            let appState
         else {
+            return
+        }
+        guard isHidden else {
             return
         }
         guard controlItem.isAddedToMenuBar else {
@@ -166,6 +174,7 @@ final class MenuBarSection {
             }
             controlItem.state = .showItems
             hiddenSection.controlItem.state = .showItems
+            autoUseIceBarIfNeeded()
         case .hidden:
             iceBarPanel?.close()
             guard let visibleSection = appState.menuBarManager.section(withName: .visible) else {
@@ -173,6 +182,7 @@ final class MenuBarSection {
             }
             controlItem.state = .showItems
             visibleSection.controlItem.state = .showItems
+            autoUseIceBarIfNeeded()
         case .alwaysHidden:
             iceBarPanel?.close()
             guard
@@ -188,12 +198,87 @@ final class MenuBarSection {
         startRehideChecks()
     }
 
+    func autoUseIceBarIfNeeded() {
+        if !autoUseIceBarWhenNeeded { return }
+        guard name == .visible || name == .hidden else {
+            return
+        }
+        guard let appState else {
+            return
+        }
+        guard let screen = screenForIceBar else {
+            return
+        }
+
+        Task { @MainActor [weak self] in
+            guard let self else {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(75))
+
+            guard
+                autoUseIceBarWhenNeeded,
+                !useIceBar,
+                let hiddenSection = appState.menuBarManager.section(withName: .hidden),
+                hiddenSection.controlItem.state == .showItems
+            else {
+                return
+            }
+
+            let overflowItems = overflowedHiddenItems(on: screen)
+            if overflowItems.isEmpty {
+                return
+            }
+
+            await iceBarPanel?.show(section: .hidden, on: screen)
+        }
+    }
+
+    private func overflowedHiddenItems(on screen: NSScreen) -> [MenuBarItem] {
+        guard let appState else {
+            return []
+        }
+
+        var hiddenItems = appState.itemManager.itemCache.managedItems(for: .hidden)
+        if hiddenItems.isEmpty {
+            let items = MenuBarItem.getMenuBarItems(onScreenOnly: false, activeSpaceOnly: false)
+
+            if let hiddenControlItem = items.first(where: { $0.info == .hiddenControlItem }) {
+                let alwaysHiddenControlItem = items.first(where: { $0.info == .alwaysHiddenControlItem })
+                let predicates = Predicates.sectionPredicates(
+                    hiddenControlItem: hiddenControlItem,
+                    alwaysHiddenControlItem: alwaysHiddenControlItem
+                )
+                hiddenItems = items
+                    .filter(predicates.isInHiddenSection)
+                    .filter(isManagedHiddenItem)
+            }
+        }
+        hiddenItems = hiddenItems.filter { $0.isOnActiveSpace }
+        let overflowedItems = hiddenItems.filter { !$0.isOnScreen }
+        return overflowedItems
+    }
+
+    private func isManagedHiddenItem(_ item: MenuBarItem) -> Bool {
+        guard item.canBeHidden else {
+            return false
+        }
+
+        if item.owningApplication == .current {
+            return item.title == ControlItem.Identifier.iceIcon.rawValue
+        }
+
+        return true
+    }
+
     /// Hides the section.
     func hide() {
         guard
-            let appState,
-            !isHidden
+            let appState
         else {
+            return
+        }
+        guard !isHidden else {
             return
         }
         iceBarPanel?.close()

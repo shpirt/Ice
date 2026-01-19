@@ -162,11 +162,25 @@ final class IceBarPanel: NSPanel {
 
         await appState.itemManager.cacheItemsIfNeeded()
 
+        if
+            section == .hidden,
+            appState.settingsManager.generalSettingsManager.autoUseIceBarWhenNeeded
+        {
+            let overflowItems = appState.itemManager.itemCache.managedItems(for: .visible)
+                .filter { $0.isOnActiveSpace && !$0.isOnScreen }
+            await appState.imageCache.updateCache(for: overflowItems, screen: screen)
+        }
+
         if ScreenCapture.cachedCheckPermissions() {
             await appState.imageCache.updateCache()
         }
 
-        contentView = IceBarHostingView(appState: appState, colorManager: colorManager, screen: screen, section: section) { [weak self] in
+        contentView = IceBarHostingView(
+            appState: appState,
+            colorManager: colorManager,
+            screen: screen,
+            section: section
+        ) { [weak self] in
             self?.close()
         }
 
@@ -204,7 +218,11 @@ private final class IceBarHostingView: NSHostingView<AnyView> {
         closePanel: @escaping () -> Void
     ) {
         super.init(
-            rootView: IceBarContentView(screen: screen, section: section, closePanel: closePanel)
+            rootView: IceBarContentView(
+                screen: screen,
+                section: section,
+                closePanel: closePanel
+            )
                 .environmentObject(appState)
                 .environmentObject(appState.imageCache)
                 .environmentObject(appState.itemManager)
@@ -245,7 +263,18 @@ private struct IceBarContentView: View {
     let closePanel: () -> Void
 
     private var items: [MenuBarItem] {
-        itemManager.itemCache.managedItems(for: section)
+        var baseItems = itemManager.itemCache.managedItems(for: section)
+        if
+            section == .hidden,
+            appState.settingsManager.generalSettingsManager.autoUseIceBarWhenNeeded
+        {
+            let overflowItems = itemManager.itemCache.managedItems(for: .visible)
+                .filter { $0.isOnActiveSpace && !$0.isOnScreen }
+            let existingInfos = Set(baseItems.map(\.info))
+            let appended = overflowItems.filter { !existingInfos.contains($0.info) }
+            baseItems.append(contentsOf: appended)
+        }
+        return baseItems.sortedByOrderInMenuBar()
     }
 
     private var configuration: MenuBarAppearanceConfigurationV2 {

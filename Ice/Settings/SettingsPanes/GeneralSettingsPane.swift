@@ -176,6 +176,7 @@ struct GeneralSettingsPane: View {
     @ViewBuilder
     private var iceBarOptions: some View {
         useIceBar
+        autoUseIceBarWhenNeeded
         if manager.useIceBar {
             iceBarLocationPicker
         }
@@ -185,6 +186,12 @@ struct GeneralSettingsPane: View {
     private var useIceBar: some View {
         Toggle("Use Ice Bar", isOn: manager.bindings.useIceBar)
             .annotation("Show hidden menu bar items in a separate bar below the menu bar")
+    }
+
+    @ViewBuilder
+    private var autoUseIceBarWhenNeeded: some View {
+        Toggle("Automatically use Ice Bar when items don't fit", isOn: manager.bindings.autoUseIceBarWhenNeeded)
+            .annotation("Show hidden menu bar items in the Ice Bar when there isn't enough space")
     }
 
     @ViewBuilder

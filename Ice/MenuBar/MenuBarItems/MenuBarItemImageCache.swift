@@ -97,14 +97,12 @@ final class MenuBarItemImageCache: ObservableObject {
         return true
     }
 
-    /// Captures the images of the current menu bar items and returns a dictionary containing
-    /// the images, keyed by the current menu bar item infos.
-    func createImages(for section: MenuBarSection.Name, screen: NSScreen) async -> [MenuBarItemInfo: CGImage] {
-        guard let appState else {
+    /// Captures the images of the given menu bar items and returns a dictionary containing
+    /// the images, keyed by the menu bar item infos.
+    private func createImages(for items: [MenuBarItem], screen: NSScreen) async -> [MenuBarItemInfo: CGImage] {
+        guard !items.isEmpty else {
             return [:]
         }
-
-        let items = await appState.itemManager.itemCache[section]
 
         var images = [MenuBarItemInfo: CGImage]()
         let backingScaleFactor = screen.backingScaleFactor
@@ -117,13 +115,14 @@ final class MenuBarItemImageCache: ObservableObject {
         var windowIDs = [CGWindowID]()
         var frame = CGRect.null
 
+        let minYTolerance: CGFloat = 1.0
+
         for item in items {
             let windowID = item.windowID
-            guard
-                // Use the most up-to-date window frame.
-                let itemFrame = Bridging.getWindowFrame(for: windowID),
-                itemFrame.minY == displayBounds.minY
-            else {
+            // Use the most up-to-date window frame, but fall back to cached
+            // window info for offscreen items.
+            let itemFrame = Bridging.getWindowFrame(for: windowID) ?? item.frame
+            guard abs(itemFrame.minY - displayBounds.minY) <= minYTolerance else {
                 continue
             }
             itemInfos[windowID] = item.info
@@ -187,6 +186,35 @@ final class MenuBarItemImageCache: ObservableObject {
         }
 
         return images
+    }
+
+    /// Captures the images of the current menu bar items and returns a dictionary containing
+    /// the images, keyed by the current menu bar item infos.
+    func createImages(for section: MenuBarSection.Name, screen: NSScreen) async -> [MenuBarItemInfo: CGImage] {
+        guard let appState else {
+            return [:]
+        }
+        let items = await appState.itemManager.itemCache[section]
+        return await createImages(for: items, screen: screen)
+    }
+
+    /// Updates the cache for the given items.
+    func updateCache(for items: [MenuBarItem], screen: NSScreen) async {
+        guard !items.isEmpty else {
+            return
+        }
+
+        let newImages = await createImages(for: items, screen: screen)
+        guard !newImages.isEmpty else {
+            return
+        }
+
+        await MainActor.run { [newImages] in
+            images.merge(newImages) { (_, new) in new }
+        }
+
+        self.screen = screen
+        self.menuBarHeight = screen.getMenuBarHeight()
     }
 
     /// Updates the cache for the given sections, without checking whether caching is necessary.
