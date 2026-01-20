@@ -176,12 +176,7 @@ extension MenuBarItem {
     ///     are on screen should be returned.
     ///   - activeSpaceOnly: A Boolean value that indicates whether only the menu bar items
     ///     that are on the active space should be returned.
-    static func getMenuBarItems(
-        on display: CGDirectDisplayID? = nil,
-        onScreenOnly: Bool,
-        activeSpaceOnly: Bool,
-        includeUntitledItems: Bool = false
-    ) -> [MenuBarItem] {
+    static func getMenuBarItems(on display: CGDirectDisplayID? = nil, onScreenOnly: Bool, activeSpaceOnly: Bool) -> [MenuBarItem] {
         var option: Bridging.WindowListOption = [.menuBarItems]
 
         var titlePredicate: (MenuBarItem) -> Bool = { _ in true }
@@ -192,9 +187,7 @@ extension MenuBarItem {
         }
         if activeSpaceOnly {
             option.insert(.activeSpace)
-            if !includeUntitledItems {
-                titlePredicate = { !($0.title ?? "").isEmpty }
-            }
+            titlePredicate = { $0.title != "" }
         }
         if let display {
             let displayBounds = CGDisplayBounds(display)
